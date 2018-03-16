@@ -18,7 +18,7 @@ type Node struct {
 }
 
 func NewNode(id int, tasks <-chan TaskRunner) *Node {
-	node := &Node{ID: id, tasks:tasks}
+	node := &Node{ID: id, tasks: tasks}
 	go node.Start()
 	return node
 }

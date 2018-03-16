@@ -3,6 +3,8 @@ package queue
 import (
 	"context"
 	"time"
+	"sync/atomic"
+	"errors"
 )
 
 type Pool struct {
@@ -20,6 +22,8 @@ func (p *Pool) Start(workers int) {
 }
 
 func (p *Pool) Shutdown(ctx context.Context) error {
+	atomic.AddInt32(&p.isShutdown, 1)
+
 	for _, node := range p.nodes {
 		node.Stop()
 	}
@@ -40,9 +44,13 @@ func (p *Pool) Shutdown(ctx context.Context) error {
 	}
 }
 
-func (p *Pool) AddTask(task TaskRunner) {
-	// TODO Add shutdown check
+func (p *Pool) AddTask(task TaskRunner) error {
+	if atomic.LoadInt32(&p.isShutdown) != 0 {
+		return errors.New("pool is shutdown")
+	}
+
 	p.tasks <- task
+	return nil
 }
 
 func (p *Pool) IsIdle() bool {
