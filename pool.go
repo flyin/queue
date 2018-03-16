@@ -2,25 +2,30 @@ package queue
 
 import (
 	"context"
-	"time"
-	"sync/atomic"
 	"errors"
+	"sync/atomic"
+	"time"
 )
 
+// Pool represents collection of nodes
 type Pool struct {
 	isShutdown int32
 	nodes      []*Node
 	tasks      chan TaskRunner
 }
 
-func (p *Pool) Start(workers int) {
-	p.tasks = make(chan TaskRunner, 100)
+// NewPool creates pool and run nodes
+func NewPool(workers int) *Pool {
+	pool := &Pool{tasks: make(chan TaskRunner, 100)}
 
 	for idx := 0; idx < workers; idx++ {
-		p.nodes = append(p.nodes, NewNode(idx, p.tasks))
+		pool.nodes = append(pool.nodes, NewNode(idx, pool.tasks))
 	}
+
+	return pool
 }
 
+// Shutdown all nodes. It is usefull for graceful complete all tasks
 func (p *Pool) Shutdown(ctx context.Context) error {
 	atomic.AddInt32(&p.isShutdown, 1)
 
@@ -32,7 +37,7 @@ func (p *Pool) Shutdown(ctx context.Context) error {
 	defer t.Stop()
 
 	for {
-		if p.IsIdle() {
+		if p.idle() {
 			return nil
 		}
 
@@ -44,6 +49,7 @@ func (p *Pool) Shutdown(ctx context.Context) error {
 	}
 }
 
+// AddTask to pool
 func (p *Pool) AddTask(task TaskRunner) error {
 	if atomic.LoadInt32(&p.isShutdown) != 0 {
 		return errors.New("pool is shutdown")
@@ -53,7 +59,7 @@ func (p *Pool) AddTask(task TaskRunner) error {
 	return nil
 }
 
-func (p *Pool) IsIdle() bool {
+func (p *Pool) idle() bool {
 	for _, node := range p.nodes {
 		if node.IsRunning() {
 			return false
