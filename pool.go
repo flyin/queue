@@ -8,25 +8,25 @@ import (
 
 type Pool struct {
 	isShutdown int32
-	workers    []*Worker
-	jobsCh     chan jobber
+	nodes      []*Node
+	tasks      chan TaskRunner
 }
 
-func (p *Pool) Start(numWorkers int) {
-	p.jobsCh = make(chan jobber, 100)
+func (p *Pool) Start(workers int) {
+	p.tasks = make(chan TaskRunner, 100)
 
-	for idx := 0; idx < numWorkers; idx++ {
-		worker := &Worker{ID: idx}
-		p.workers = append(p.workers, worker)
-		go worker.Start(p.jobsCh)
+	for idx := 0; idx < workers; idx++ {
+		node := &Node{ID: idx}
+		p.nodes = append(p.nodes, node)
+		go node.Start(p.tasks)
 	}
 }
 
 func (p *Pool) Shutdown(ctx context.Context) error {
 	log.Printf("[%T] Receive shuthdow", p)
 
-	for _, worker := range p.workers {
-		go worker.Stop()
+	for _, node := range p.nodes {
+		go node.Stop()
 	}
 
 	t := time.NewTicker(100 * time.Microsecond)
@@ -46,17 +46,17 @@ func (p *Pool) Shutdown(ctx context.Context) error {
 	}
 }
 
+func (p *Pool) AddTask(task TaskRunner) {
+	log.Printf("Add task: %v", task)
+	p.tasks <- task
+}
+
 func (p *Pool) IsIdle() bool {
-	for _, worker := range p.workers {
-		if worker.IsRunning() {
+	for _, node := range p.nodes {
+		if node.IsRunning() {
 			return false
 		}
 	}
 
 	return true
-}
-
-func (p *Pool) AddJob(job jobber) {
-	log.Printf("Add job: %v", job)
-	p.jobsCh <- job
 }
