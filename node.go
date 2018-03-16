@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"log"
 	"sync/atomic"
 	"fmt"
 )
@@ -15,29 +14,30 @@ type Node struct {
 	isWorking  int32
 	isShutdown int32
 	ID         int
+	tasks      <-chan TaskRunner
+}
+
+func NewNode(id int, tasks <-chan TaskRunner) *Node {
+	node := &Node{ID: id, tasks:tasks}
+	go node.Start()
+	return node
 }
 
 func (n *Node) runTask(task TaskRunner) error {
-	log.Printf("[%v] Receive task: %s Type: %T", n, task, task)
-	defer log.Printf("[%v] Complete task: %s", n, task)
-
 	atomic.AddInt32(&n.isWorking, 1)
 	defer atomic.AddInt32(&n.isWorking, -1)
 
 	return task.Run(n)
 }
 
-func (n *Node) Start(tasks <-chan TaskRunner) {
-	log.Printf("[%v] Start loop", n)
-
+func (n *Node) Start() {
 	for {
 		if atomic.LoadInt32(&n.isShutdown) != 0 {
-			log.Printf("[%v-node] Close loop", n.ID)
 			return
 		}
 
 		select {
-		case task := <-tasks:
+		case task := <-n.tasks:
 			n.runTask(task)
 		}
 	}
@@ -49,7 +49,6 @@ func (n *Node) String() string {
 
 func (n *Node) Stop() {
 	atomic.AddInt32(&n.isShutdown, 1)
-	log.Printf("[%v] Receive Stop", n)
 }
 
 func (n *Node) IsRunning() bool {

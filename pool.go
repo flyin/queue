@@ -2,7 +2,6 @@ package queue
 
 import (
 	"context"
-	"log"
 	"time"
 )
 
@@ -16,17 +15,13 @@ func (p *Pool) Start(workers int) {
 	p.tasks = make(chan TaskRunner, 100)
 
 	for idx := 0; idx < workers; idx++ {
-		node := &Node{ID: idx}
-		p.nodes = append(p.nodes, node)
-		go node.Start(p.tasks)
+		p.nodes = append(p.nodes, NewNode(idx, p.tasks))
 	}
 }
 
 func (p *Pool) Shutdown(ctx context.Context) error {
-	log.Printf("[%T] Receive shuthdow", p)
-
 	for _, node := range p.nodes {
-		go node.Stop()
+		node.Stop()
 	}
 
 	t := time.NewTicker(100 * time.Microsecond)
@@ -34,7 +29,6 @@ func (p *Pool) Shutdown(ctx context.Context) error {
 
 	for {
 		if p.IsIdle() {
-			log.Printf("Pool is idle, exit then")
 			return nil
 		}
 
@@ -47,7 +41,7 @@ func (p *Pool) Shutdown(ctx context.Context) error {
 }
 
 func (p *Pool) AddTask(task TaskRunner) {
-	log.Printf("Add task: %v", task)
+	// TODO Add shutdown check
 	p.tasks <- task
 }
 
