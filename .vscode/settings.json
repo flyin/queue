@@ -1,0 +1,4 @@
+{
+    "go.lintTool": "gometalinter",
+    "go.vetOnSave": "off",
+}
