@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"log"
 	"sync/atomic"
 )
 
@@ -38,9 +39,11 @@ func (n *Node) start() {
 			return
 		}
 
-		select {
-		case task := <-n.tasks:
-			n.runTask(task)
+		task := <-n.tasks
+
+		if err := n.runTask(task); err != nil {
+			log.Printf("[%v] error occured: %v", n, err)
+			continue
 		}
 	}
 }
