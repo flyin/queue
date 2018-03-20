@@ -16,7 +16,10 @@ type Pool struct {
 
 // NewPool creates pool and run nodes
 func NewPool(workers int) *Pool {
-	pool := &Pool{tasks: make(chan TaskRunner, 100)}
+	pool := &Pool{
+		tasks: make(chan TaskRunner, 100),
+		nodes: make([]*Node, 0, workers),
+	}
 
 	for idx := 0; idx < workers; idx++ {
 		pool.nodes = append(pool.nodes, NewNode(idx, pool.tasks))
@@ -30,7 +33,7 @@ func (p *Pool) Shutdown(ctx context.Context) error {
 	atomic.AddInt32(&p.isShutdown, 1)
 
 	for _, node := range p.nodes {
-		node.Stop()
+		go node.Stop()
 	}
 
 	t := time.NewTicker(100 * time.Microsecond)
