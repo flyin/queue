@@ -9,9 +9,22 @@ import (
 
 // Pool represents collection of nodes
 type Pool struct {
-	isShutdown int32
-	nodes      []*Node
-	tasks      chan TaskRunner
+	state struct {
+		shutdown int32
+	}
+
+	nodes []*Node
+	tasks chan TaskRunner
+}
+
+func (p *Pool) idle() bool {
+	for _, node := range p.nodes {
+		if node.IsRunning() {
+			return false
+		}
+	}
+
+	return true
 }
 
 // NewPool creates pool and run nodes
@@ -28,9 +41,9 @@ func NewPool(workers int) *Pool {
 	return pool
 }
 
-// Shutdown all nodes. It is usefull for graceful complete all tasks
+// Shutdown turns pool in shutdown state. It is usefull for graceful complete all tasks
 func (p *Pool) Shutdown(ctx context.Context) error {
-	atomic.AddInt32(&p.isShutdown, 1)
+	atomic.AddInt32(&p.state.shutdown, 1)
 
 	for _, node := range p.nodes {
 		go node.Stop()
@@ -54,20 +67,10 @@ func (p *Pool) Shutdown(ctx context.Context) error {
 
 // AddTask to pool
 func (p *Pool) AddTask(task TaskRunner) error {
-	if atomic.LoadInt32(&p.isShutdown) != 0 {
-		return errors.New("pool is shutdown")
+	if atomic.LoadInt32(&p.state.shutdown) != 0 {
+		return errors.New("pool is in shutdown state")
 	}
 
 	p.tasks <- task
 	return nil
-}
-
-func (p *Pool) idle() bool {
-	for _, node := range p.nodes {
-		if node.IsRunning() {
-			return false
-		}
-	}
-
-	return true
 }
