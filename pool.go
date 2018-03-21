@@ -19,7 +19,7 @@ type Pool struct {
 
 func (p *Pool) idle() bool {
 	for _, node := range p.nodes {
-		if node.IsRunning() {
+		if node.Running() {
 			return false
 		}
 	}
@@ -39,6 +39,16 @@ func NewPool(workers int) *Pool {
 	}
 
 	return pool
+}
+
+// AddTask to pool
+func (p *Pool) AddTask(task TaskRunner) error {
+	if atomic.LoadInt32(&p.state.shutdown) != 0 {
+		return errors.New("pool is in shutdown state")
+	}
+
+	p.tasks <- task
+	return nil
 }
 
 // Shutdown turns pool in shutdown state. It is usefull for graceful complete all tasks
@@ -63,14 +73,4 @@ func (p *Pool) Shutdown(ctx context.Context) error {
 		case <-t.C:
 		}
 	}
-}
-
-// AddTask to pool
-func (p *Pool) AddTask(task TaskRunner) error {
-	if atomic.LoadInt32(&p.state.shutdown) != 0 {
-		return errors.New("pool is in shutdown state")
-	}
-
-	p.tasks <- task
-	return nil
 }

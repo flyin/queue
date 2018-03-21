@@ -6,12 +6,12 @@ import (
 	"sync/atomic"
 )
 
-// TaskRunner is foreign task runner contract
+// TaskRunner is a foreign task runner contract
 type TaskRunner interface {
 	Run(node *Node) error
 }
 
-// Node represent one task runner thread
+// Node represents one task runner thread
 type Node struct {
 	state struct {
 		busy     int32
@@ -25,43 +25,38 @@ type Node struct {
 // NewNode returns new Node and start listening tasks
 func NewNode(id int, tasks <-chan TaskRunner) *Node {
 	node := &Node{ID: id, tasks: tasks}
-	go node.start()
+
+	go func(n *Node) {
+		for {
+			if atomic.LoadInt32(&n.state.shutdown) != 0 {
+				return
+			}
+
+			task := <-n.tasks
+			atomic.AddInt32(&n.state.busy, 1)
+			err := task.Run(n)
+			atomic.AddInt32(&n.state.busy, -1)
+
+			if err != nil {
+				log.Printf("[%v] error occured: %v", n, err)
+				continue
+			}
+		}
+	}(node)
+
 	return node
 }
 
-func (n *Node) runTask(task TaskRunner) error {
-	atomic.AddInt32(&n.state.busy, 1)
-	defer atomic.AddInt32(&n.state.busy, -1)
-
-	return task.Run(n)
-}
-
-func (n *Node) start() {
-	for {
-		if atomic.LoadInt32(&n.state.shutdown) != 0 {
-			return
-		}
-
-		task := <-n.tasks
-
-		if err := n.runTask(task); err != nil {
-			log.Printf("[%v] error occured: %v", n, err)
-			continue
-		}
-	}
-}
-
-// String representation of the node
 func (n *Node) String() string {
 	return fmt.Sprintf("%v-node", n.ID)
 }
 
-// Stop is placing node to shutdown state
+// Stop turns node into shutdown state
 func (n *Node) Stop() {
 	atomic.AddInt32(&n.state.shutdown, 1)
 }
 
-// IsRunning returns actual node busy state
-func (n *Node) IsRunning() bool {
+// Running returns actual node busy state
+func (n *Node) Running() bool {
 	return atomic.LoadInt32(&n.state.busy) != 0
 }
