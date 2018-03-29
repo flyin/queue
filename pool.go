@@ -14,7 +14,7 @@ type Pool struct {
 	}
 
 	nodes []*Node
-	tasks chan TaskRunner
+	tasks chan Runner
 }
 
 func (p *Pool) idle() bool {
@@ -30,7 +30,7 @@ func (p *Pool) idle() bool {
 // NewPool creates pool and run nodes
 func NewPool(workers int) *Pool {
 	pool := &Pool{
-		tasks: make(chan TaskRunner, 100),
+		tasks: make(chan Runner, 100),
 		nodes: make([]*Node, 0, workers),
 	}
 
@@ -42,7 +42,7 @@ func NewPool(workers int) *Pool {
 }
 
 // AddTask to pool
-func (p *Pool) AddTask(task TaskRunner) error {
+func (p *Pool) AddTask(task Runner) error {
 	if atomic.LoadInt32(&p.state.shutdown) != 0 {
 		return errors.New("pool is in shutdown state")
 	}

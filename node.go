@@ -6,9 +6,9 @@ import (
 	"sync/atomic"
 )
 
-// TaskRunner is a foreign task runner contract
-type TaskRunner interface {
-	Run(node *Node) error
+// Runner is a foreign task runner contract
+type Runner interface {
+	Run() error
 }
 
 // Node represents one task runner thread
@@ -19,11 +19,11 @@ type Node struct {
 	}
 
 	ID    int
-	tasks <-chan TaskRunner
+	tasks <-chan Runner
 }
 
 // NewNode returns new Node and start listening tasks
-func NewNode(id int, tasks <-chan TaskRunner) *Node {
+func NewNode(id int, tasks <-chan Runner) *Node {
 	node := &Node{ID: id, tasks: tasks}
 
 	go func(n *Node) {
@@ -34,7 +34,7 @@ func NewNode(id int, tasks <-chan TaskRunner) *Node {
 
 			task := <-n.tasks
 			atomic.AddInt32(&n.state.busy, 1)
-			err := task.Run(n)
+			err := task.Run()
 			atomic.AddInt32(&n.state.busy, -1)
 
 			if err != nil {
